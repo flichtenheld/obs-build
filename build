@@ -87,6 +87,7 @@ PERSONALITY_SYSCALL=
 INCARNATION=
 DISTURL=
 LINKSOURCES=
+CCACHE_DIR=
 OVERLAY=
 RSYNCSRC=
 RSYNCDEST=
@@ -233,6 +234,9 @@ Known Parameters:
   --ccache
               Use ccache to speed up rebuilds
 
+  --ccache_dir
+              Bindmount external ccache cache to buildroot
+
   --icecream N
               Use N parallel build jobs with icecream
 
@@ -351,6 +355,7 @@ cleanup_and_exit () {
 	umount -n $BUILD_ROOT/dev/pts 2>/dev/null || true
 	test "$VM_IMAGE" = 1 && VM_IMAGE=
 	[ -n "$VM_IMAGE" ] && umount $BUILD_ROOT 2>/dev/null || true
+	[ -n "$CCACHE_DIR" ] && umount $BUILD_ROOT/.ccache 2>/dev/null || true
     fi
 #    echo "pid $$ exit $1"
     exit $1
@@ -399,6 +404,15 @@ setupccache()
 	    done
 	fi
 	mkdir -p "$BUILD_ROOT"/.ccache
+	if [ -n "$CCACHE_DIR" ]; then
+	    if [ -d "$CCACHE_DIR" ]; then
+		mount -obind "$CCACHE_DIR" "$BUILD_ROOT/.ccache"
+	    else
+		echo "CCACHE_DIR is no directory, ignoring"
+		CCACHE_DIR=
+	    fi
+	fi
+
 	chown -R "$ABUILD_UID:$ABUILD_GID" "$BUILD_ROOT/.ccache"
 	echo "export CCACHE_DIR=/.ccache" > "$BUILD_ROOT"/etc/profile.d/build_ccache.sh
 	echo 'export PATH=/var/lib/build/ccache/bin:$PATH' >> "$BUILD_ROOT"/etc/profile.d/build_ccache.sh
@@ -1043,6 +1057,11 @@ while test -n "$1"; do
       ;;
       --ccache)
 	ccache=1
+      ;;
+      --ccache_dir)
+	needarg
+	CCACHE_DIR="$ARG"
+	shift
       ;;
       --debug)
 	BUILD_DEBUG=1
